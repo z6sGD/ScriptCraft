@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScriptCraft - Web Sandbox & JS Injector PWA</title>
+  
+  <!-- PWA Metadata -->
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="PWA Web Sandbox with CORS Proxy, Direct iFrame embedding, and JavaScript scriptlet injection.">
+  <link rel="manifest" id="manifest-placeholder">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Sleek developer dark mode scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    .device-viewport {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .device-desktop { width: 100%; height: 100%; max-width: 100%; }
+    .device-tablet { width: 768px; height: 100%; max-height: 100%; border-radius: 12px; }
+    .device-mobile { width: 375px; height: 667px; max-height: 100%; border-radius: 24px; }
+
+    /* Custom Toast Notification Animation */
+    @keyframes slide-up {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .animate-toast {
+      animation: slide-up 0.3s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased h-screen flex flex-col overflow-hidden">
+
+  <!-- TOP HEADER / NAVBAR -->
+  <header class="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-4 flex items-center justify-between z-20 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <i data-lucide="code-2" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-sm tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+          ScriptCraft
+        </h1>
+        <p class="text-[10px] text-slate-400 hidden sm:block">PWA Web Sandbox & JS Injector</p>
+      </div>
+    </div>
+
+    <!-- RENDER MODE SELECTOR -->
+    <div class="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800">
+      <button onclick="setRenderMode('proxy')" id="mode-btn-proxy" class="px-3 py-1 text-xs font-medium rounded-md bg-cyan-600 text-white flex items-center gap-1.5 transition shadow">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Proxy HTML Injector
+      </button>
+      <button onclick="setRenderMode('iframe')" id="mode-btn-iframe" class="px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition">
+        <i data-lucide="layout" class="w-3.5 h-3.5"></i> Direct iFrame
+      </button>
+    </div>
+
+    <!-- VIEWPORT SWITCHER -->
+    <div class="hidden lg:flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800 space-x-1">
+      <button onclick="setViewport('desktop')" id="btn-vp-desktop" class="vp-btn px-2.5 py-1 text-xs font-medium rounded-md bg-slate-800 text-cyan-400 flex items-center gap-1.5 transition">
+        <i data-lucide="monitor" class="w-3.5 h-3.5"></i> Desktop
+      </button>
+      <button onclick="setViewport('tablet')" id="btn-vp-tablet" class="vp-btn px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition">
+        <i data-lucide="tablet" class="w-3.5 h-3.5"></i> Tablet
+      </button>
+      <button onclick="setViewport('mobile')" id="btn-vp-mobile" class="vp-btn px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition">
+        <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> Mobile
+      </button>
+    </div>
+
+    <!-- RIGHT CONTROLS & ORIGIN HELPER BADGE -->
+    <div class="flex items-center space-x-2">
+      <!-- Allowed Origin Helper Quick Button -->
+      <button onclick="toggleModal('origin-modal')" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/40 text-cyan-300 text-xs font-medium hover:bg-cyan-900/50 transition">
+        <i data-lucide="globe-2" class="w-3.5 h-3.5 text-cyan-400"></i>
+        <span class="hidden sm:inline">Allowed Origins</span>
+      </button>
+
+      <!-- Key Status Badge -->
+      <button onclick="switchTab('settings')" id="key-status-badge" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/40 text-emerald-400 text-xs font-medium hover:bg-emerald-900/40 transition">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="key-badge-text" class="hidden sm:inline">CorsProxy Key Active</span>
+        <i data-lucide="key" class="w-3.5 h-3.5"></i>
+      </button>
+
+      <!-- Educational SOP Panel Button -->
+      <button onclick="toggleModal('sop-modal')" class="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-cyan-400 hover:border-slate-700 transition" title="CORS & SOP Info">
+        <i data-lucide="help-circle" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Install PWA Button -->
+      <button id="pwa-install-btn" onclick="installPWA()" class="hidden flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition shadow-md shadow-cyan-600/30">
+        <i data-lucide="download" class="w-3.5 h-3.5"></i> Install
+      </button>
+    </div>
+  </header>
+
+  <!-- PROMINENT ALLOWED ORIGIN & PROXY SETUP BANNER -->
+  <div id="origin-setup-banner" class="bg-gradient-to-r from-slate-900 via-cyan-950/60 to-slate-900 border-b border-cyan-500/30 p-2.5 px-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs z-10 shrink-0">
+    <div class="flex items-center gap-2.5">
+      <div class="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shrink-0">
+        <i data-lucide="shield-alert" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <span class="font-bold text-cyan-300">corsproxy.dev Origin Setup:</span>
+        <span class="text-slate-300 ml-1">To ensure smooth proxying, register your active domain in your corsproxy.dev dashboard.</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto shrink-0">
+      <!-- Live Browser Origin Button -->
+      <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] font-mono text-cyan-300">
+        <span class="text-slate-500">Live:</span>
+        <span id="banner-live-origin" class="font-bold">...</span>
+        <button onclick="copyToClipboard(window.location.origin, 'Live Origin')" class="text-slate-400 hover:text-white ml-1 p-0.5 rounded hover:bg-slate-800" title="Copy Live Origin">
+          <i data-lucide="copy" class="w-3 h-3"></i>
+        </button>
+      </div>
+
+      <!-- Google Canvas Origin Button -->
+      <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] font-mono text-cyan-300">
+        <span class="text-slate-500">Canvas:</span>
+        <span class="font-bold">googleusercontent.com</span>
+        <button onclick="copyToClipboard('https://googleusercontent.com', 'Canvas Origin')" class="text-slate-400 hover:text-white ml-1 p-0.5 rounded hover:bg-slate-800" title="Copy Canvas Origin">
+          <i data-lucide="copy" class="w-3 h-3"></i>
+        </button>
+      </div>
+
+      <button onclick="toggleModal('origin-modal')" class="px-2.5 py-1 rounded-lg bg-cyan-600/80 hover:bg-cyan-500 text-white font-medium text-[11px] transition shrink-0">
+        Setup Guide
+      </button>
+
+      <button onclick="dismissBanner()" class="text-slate-500 hover:text-slate-300 p-1" title="Dismiss Banner">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- URL & RENDER CONTROL BAR -->
+  <div class="border-b border-slate-800 bg-slate-900/50 p-2.5 px-4 flex flex-col space-y-2 z-10 shrink-0">
+    <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2">
+      <!-- Target URL Input -->
+      <div class="flex-1 flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 focus-within:border-cyan-500 transition">
+        <i data-lucide="globe" class="w-4 h-4 text-slate-500 shrink-0"></i>
+        <input type="url" id="target-url" value="https://example.com" placeholder="https://example.com" class="w-full bg-transparent text-xs text-slate-100 placeholder-slate-600 outline-none" onkeydown="if(event.key==='Enter') renderTarget()">
+        <button onclick="clearUrl()" class="text-slate-500 hover:text-slate-300">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <!-- Execute Actions -->
+      <div class="flex items-center gap-2">
+        <button onclick="renderTarget()" id="btn-fetch" class="flex-1 md:flex-none px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-xs flex items-center justify-center gap-2 transition shadow-md shadow-cyan-500/20 active:scale-95">
+          <i data-lucide="play" class="w-3.5 h-3.5"></i> <span id="btn-fetch-label">Fetch & Inject</span>
+        </button>
+
+        <!-- Presets Dropdown -->
+        <div class="relative">
+          <button onclick="togglePresetMenu()" class="px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 text-xs flex items-center gap-1 hover:border-slate-700 transition">
+            Presets <i data-lucide="chevron-down" class="w-3 h-3"></i>
+          </button>
+          <div id="preset-menu" class="hidden absolute right-0 mt-1 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 py-1 text-xs">
+            <div class="px-3 py-1 text-[10px] uppercase font-semibold text-slate-500">Preset Pages</div>
+            <button onclick="loadPreset('https://example.com')" class="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300">Example Domain</button>
+            <button onclick="loadPreset('https://news.ycombinator.com')" class="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300">Hacker News</button>
+            <button onclick="loadPreset('https://en.m.wikipedia.org/wiki/Main_Page')" class="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300">Wikipedia Mobile</button>
+            <button onclick="loadPreset('https://httpbin.org/html')" class="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300">HTTPBin HTML Test</button>
+            <button onclick="loadPreset('https://quotes.toscrape.com')" class="w-full text-left px-3 py-1.5 hover:bg-slate-800 text-slate-300">Quotes To Scrape</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIRECT IFRAME SANDBOX FLAGS CONTROL BAR (Only active in Direct iFrame Mode) -->
+    <div id="iframe-flags-bar" class="hidden pt-1 border-t border-slate-800/80 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+      <span class="font-bold text-cyan-400 flex items-center gap-1">
+        <i data-lucide="sliders" class="w-3 h-3"></i> iFrame Sandbox Flags:
+      </span>
+      <label class="flex items-center gap-1 cursor-pointer hover:text-slate-200">
+        <input type="checkbox" id="flag-scripts" checked onchange="updateIframeSandboxFlags()" class="rounded bg-slate-950 border-slate-700 text-cyan-500"> allow-scripts
+      </label>
+      <label class="flex items-center gap-1 cursor-pointer hover:text-slate-200">
+        <input type="checkbox" id="flag-same-origin" checked onchange="updateIframeSandboxFlags()" class="rounded bg-slate-950 border-slate-700 text-cyan-500"> allow-same-origin
+      </label>
+      <label class="flex items-center gap-1 cursor-pointer hover:text-slate-200">
+        <input type="checkbox" id="flag-forms" checked onchange="updateIframeSandboxFlags()" class="rounded bg-slate-950 border-slate-700 text-cyan-500"> allow-forms
+      </label>
+      <label class="flex items-center gap-1 cursor-pointer hover:text-slate-200">
+        <input type="checkbox" id="flag-popups" checked onchange="updateIframeSandboxFlags()" class="rounded bg-slate-950 border-slate-700 text-cyan-500"> allow-popups
+      </label>
+      <label class="flex items-center gap-1 cursor-pointer hover:text-slate-200">
+        <input type="checkbox" id="flag-modals" checked onchange="updateIframeSandboxFlags()" class="rounded bg-slate-950 border-slate-700 text-cyan-500"> allow-modals
+      </label>
+    </div>
+  </div>
+
+  <!-- MAIN WORKSPACE LAYOUT -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- LEFT WORKSPACE CONTROL PANE -->
+    <aside id="left-pane" class="w-full md:w-96 border-r border-slate-800 bg-slate-900/70 flex flex-col shrink-0 z-10 transition-all duration-300">
+      
+      <!-- NAV TABS -->
+      <div class="flex border-b border-slate-800 bg-slate-950/60 text-xs shrink-0 overflow-x-auto">
+        <button onclick="switchTab('scriptlets')" id="tab-btn-scriptlets" class="flex-1 py-2.5 px-3 font-medium text-cyan-400 border-b-2 border-cyan-400 flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Scriptlets
+        </button>
+        <button onclick="switchTab('console')" id="tab-btn-console" class="flex-1 py-2.5 px-3 font-medium text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center gap-1.5 transition relative">
+          <i data-lucide="terminal" class="w-3.5 h-3.5"></i> Console
+          <span id="log-count-badge" class="hidden px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-bold">0</span>
+        </button>
+        <button onclick="switchTab('postmessage')" id="tab-btn-postmessage" class="flex-1 py-2.5 px-3 font-medium text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="message-square" class="w-3.5 h-3.5"></i> Bridge
+        </button>
+        <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex-1 py-2.5 px-3 font-medium text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="key-round" class="w-3.5 h-3.5"></i> Keys/Proxy
+        </button>
+      </div>
+
+      <!-- TAB 1: SCRIPTLETS MANAGER -->
+      <div id="tab-scriptlets" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Injections</h3>
+          <span class="text-[10px] text-slate-500">Auto-injects on Fetch</span>
+        </div>
+
+        <!-- Scriptlet Cards -->
+        <div class="space-y-2.5">
+          <!-- Dark Mode Enforcer -->
+          <label class="flex items-start justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 transition cursor-pointer group">
+            <div class="flex items-start gap-3">
+              <input type="checkbox" id="sc-dark-mode" checked class="mt-1 rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900">
+              <div>
+                <div class="text-xs font-medium text-slate-200 group-hover:text-cyan-400 transition flex items-center gap-1.5">
+                  <i data-lucide="moon" class="w-3.5 h-3.5 text-indigo-400"></i> Dark Mode Enforcer
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Inverts page background & enhances contrast for late-night viewing.</p>
+              </div>
+            </div>
+          </label>
+
+          <!-- Auto Form Filler -->
+          <label class="flex items-start justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 transition cursor-pointer group">
+            <div class="flex items-start gap-3">
+              <input type="checkbox" id="sc-form-filler" class="mt-1 rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900">
+              <div>
+                <div class="text-xs font-medium text-slate-200 group-hover:text-cyan-400 transition flex items-center gap-1.5">
+                  <i data-lucide="text-cursor-input" class="w-3.5 h-3.5 text-emerald-400"></i> Auto Form Filler
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Populates text inputs, emails, and forms with mock testing data.</p>
+              </div>
+            </div>
+          </label>
+
+          <!-- FPS Counter & HUD -->
+          <label class="flex items-start justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 transition cursor-pointer group">
+            <div class="flex items-start gap-3">
+              <input type="checkbox" id="sc-fps-hud" checked class="mt-1 rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900">
+              <div>
+                <div class="text-xs font-medium text-slate-200 group-hover:text-cyan-400 transition flex items-center gap-1.5">
+                  <i data-lucide="activity" class="w-3.5 h-3.5 text-amber-400"></i> FPS & Node HUD
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Overlays live frame rates and total DOM element counts.</p>
+              </div>
+            </div>
+          </label>
+
+          <!-- Element Inspector -->
+          <label class="flex items-start justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 transition cursor-pointer group">
+            <div class="flex items-start gap-3">
+              <input type="checkbox" id="sc-inspector" class="mt-1 rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900">
+              <div>
+                <div class="text-xs font-medium text-slate-200 group-hover:text-cyan-400 transition flex items-center gap-1.5">
+                  <i data-lucide="inspect" class="w-3.5 h-3.5 text-rose-400"></i> Element Inspector
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Highlights elements on hover and logs target selector info on click.</p>
+              </div>
+            </div>
+          </label>
+
+          <!-- Ad Defuser -->
+          <label class="flex items-start justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 transition cursor-pointer group">
+            <div class="flex items-start gap-3">
+              <input type="checkbox" id="sc-ad-defuser" checked class="mt-1 rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900">
+              <div>
+                <div class="text-xs font-medium text-slate-200 group-hover:text-cyan-400 transition flex items-center gap-1.5">
+                  <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-cyan-400"></i> Ad & Banner Defuser
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Identifies and purges sticky banners, cookie modals, and ad frames.</p>
+              </div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Custom JS Code Editor -->
+        <div class="pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+              <i data-lucide="code" class="w-3.5 h-3.5 text-cyan-400"></i> Custom JavaScript Code
+            </span>
+            <button onclick="executeCustomJsNow()" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">Run Live</button>
+          </div>
+          <textarea id="custom-js-code" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-cyan-300 placeholder-slate-600 focus:border-cyan-500 outline-none resize-none" placeholder="// Custom JavaScript snippet injected into target iframe
+console.log('Hello from Custom Scriptlet!');
+document.body.style.border = '3px solid #0ea5e9';"></textarea>
+        </div>
+      </div>
+
+      <!-- TAB 2: CONSOLE LOGS -->
+      <div id="tab-console" class="hidden flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
+        <!-- Console Toolbar -->
+        <div class="p-2 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between text-xs shrink-0">
+          <div class="flex items-center gap-1">
+            <button onclick="filterConsole('all')" id="filter-all" class="px-2 py-0.5 rounded bg-slate-800 text-slate-200 font-medium">All</button>
+            <button onclick="filterConsole('log')" id="filter-log" class="px-2 py-0.5 rounded text-slate-400 hover:text-slate-200">Log</button>
+            <button onclick="filterConsole('warn')" id="filter-warn" class="px-2 py-0.5 rounded text-amber-400/80 hover:text-amber-400">Warn</button>
+            <button onclick="filterConsole('error')" id="filter-error" class="px-2 py-0.5 rounded text-rose-400/80 hover:text-rose-400">Error</button>
+          </div>
+          <button onclick="clearConsoleLogs()" class="p-1 text-slate-500 hover:text-slate-300 rounded hover:bg-slate-800" title="Clear Console">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- Log List -->
+        <div id="console-logs-container" class="flex-1 overflow-y-auto p-3 font-mono text-[11px] space-y-1.5">
+          <div class="text-slate-600 italic">No console activity recorded yet. Fetch a page to begin capture.</div>
+        </div>
+
+        <!-- Live JS Evaluator Command Input -->
+        <div class="p-2 border-t border-slate-800 bg-slate-900/90 flex items-center gap-2 shrink-0">
+          <span class="text-cyan-400 font-mono text-xs pl-1">&gt;</span>
+          <input type="text" id="console-cmd-input" placeholder="Eval JS in frame... e.g. document.title" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-200 focus:border-cyan-500 outline-none" onkeydown="if(event.key==='Enter') runConsoleCmd()">
+          <button onclick="runConsoleCmd()" class="px-2.5 py-1 rounded-lg bg-cyan-600 text-white text-xs font-medium hover:bg-cyan-500 transition">Run</button>
+        </div>
+      </div>
+
+      <!-- TAB 3: POSTMESSAGE CROSS-ORIGIN BRIDGE -->
+      <div id="tab-postmessage" class="hidden flex-1 overflow-y-auto p-4 space-y-4">
+        <div>
+          <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-cyan-400"></i> postMessage Bridge
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-1">Send structured messages to embedded frame contexts across origins.</p>
+        </div>
+
+        <!-- Dispatcher Form -->
+        <div class="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <label class="text-[11px] font-medium text-slate-300 block">Payload String or JSON</label>
+          <textarea id="pm-payload" rows="3" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs font-mono text-cyan-300 focus:border-cyan-500 outline-none resize-none">{"action": "ping", "source": "ScriptCraftParent"}</textarea>
+          
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[10px] text-slate-500">Target Origin: <code class="text-cyan-400">*</code></span>
+            <button onclick="sendPostMessage()" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition flex items-center gap-1">
+              <i data-lucide="send" class="w-3 h-3"></i> Dispatch Message
+            </button>
+          </div>
+        </div>
+
+        <!-- Received Message Log -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="text-[11px] font-semibold text-slate-400 uppercase">Received Frame Messages</h4>
+            <button onclick="clearPostMessageLogs()" class="text-[10px] text-slate-500 hover:text-slate-300">Clear</button>
+          </div>
+          <div id="pm-logs-container" class="space-y-1.5 max-h-56 overflow-y-auto font-mono text-[11px]">
+            <div class="text-slate-600 italic">No incoming postMessages captured.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: API KEYS & PROXY CONFIG -->
+      <div id="tab-settings" class="hidden flex-1 overflow-y-auto p-4 space-y-5">
+        <div class="border-b border-slate-800 pb-3">
+          <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+            <i data-lucide="key" class="w-4 h-4 text-cyan-400"></i> CorsProxy.dev Key Manager
+          </h3>
+          <p class="text-xs text-slate-400 mt-1">Configure your API authentication key for seamless cross-origin request routing.</p>
+        </div>
+
+        <!-- Proxy Provider Selector -->
+        <div class="space-y-2">
+          <label class="text-xs font-medium text-slate-300 block">Active Proxy Service</label>
+          <select id="proxy-selector" onchange="handleProxyChange()" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl p-2.5 focus:ring-1 focus:ring-cyan-500 outline-none cursor-pointer">
+            <option value="corsproxy.dev">CorsProxy.dev (Default with Key)</option>
+            <option value="corsproxy.io">CorsProxy.io (Public)</option>
+            <option value="allorigins">AllOrigins Proxy</option>
+            <option value="cors.dev">CORS.dev Proxy</option>
+          </select>
+        </div>
+
+        <!-- Key Input Box -->
+        <div class="space-y-2">
+          <label class="text-xs font-medium text-slate-300 block">CorsProxy.dev API Key</label>
+          <div class="relative">
+            <input type="password" id="cors-key-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 focus:border-cyan-500 outline-none pr-10" placeholder="sk_live_...">
+            <button onclick="toggleKeyVisibility()" class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300">
+              <i data-lucide="eye" id="eye-icon" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div class="flex items-center justify-between text-[11px] pt-1">
+            <span class="text-slate-500">Pre-configured live key</span>
+            <button onclick="resetDefaultKey()" class="text-cyan-400 hover:underline font-medium">Reset Default</button>
+          </div>
+        </div>
+
+        <!-- Active Status Badge Details -->
+        <div id="key-status-card" class="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-xs space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-emerald-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Key Authentication State
+            </span>
+            <span id="key-auth-state" class="font-mono text-[10px] bg-emerald-900/60 text-emerald-300 px-2 py-0.5 rounded-full">ACTIVE</span>
+          </div>
+          <p class="text-slate-300 text-[11px]" id="key-status-desc">Valid API key bound: <code class="font-mono text-emerald-300" id="masked-key-display">sk_live_ed0b...acb</code></p>
+          <div class="pt-1 flex gap-2">
+            <button onclick="saveAndValidateKey()" class="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition">Save Key</button>
+            <button onclick="testKeyAuth()" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition">Test Ping</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT SANDBOX VIEWPORT CONTAINER -->
+    <main class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden">
+      
+      <!-- VIEWPORT FRAME HEADER -->
+      <div class="h-9 border-b border-slate-800 bg-slate-900/80 px-4 flex items-center justify-between text-xs shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700" id="sandbox-status-dot"></span>
+          <span class="font-mono text-[11px] text-slate-400" id="sandbox-status-text">Ready</span>
+        </div>
+        
+        <div class="flex items-center gap-3 text-[11px] text-slate-500">
+          <span id="render-mode-indicator" class="font-bold text-cyan-400 uppercase">PROXY MODE</span>
+          <span id="load-time-display">0 ms</span>
+          <button onclick="reloadSandboxIframe()" class="hover:text-slate-200 transition" title="Reload Frame">
+            <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+          </button>
+          <button onclick="openFrameInNewTab()" class="hover:text-slate-200 transition" title="Open Clean Frame">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- CENTERED DEVICE CANVAS CONTAINER -->
+      <div class="flex-1 p-4 md:p-6 overflow-auto flex items-center justify-center bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
+        <div id="device-wrapper" class="device-viewport device-desktop bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-800 flex flex-col relative">
+          <!-- Loading Overlay -->
+          <div id="frame-loader" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center text-slate-200 space-y-3">
+            <div class="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-xs font-mono text-cyan-400" id="loader-status">Proxying request & injecting scriptlets...</p>
+          </div>
+
+          <!-- Sandboxed Iframe -->
+          <iframe id="sandbox-iframe" class="w-full h-full border-none bg-white" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ALLOWED ORIGIN HELPER MODAL -->
+  <div id="origin-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative">
+      <button onclick="toggleModal('origin-modal')" class="absolute right-4 top-4 text-slate-500 hover:text-slate-200">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          <i data-lucide="globe-2" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-100">corsproxy.dev Allowed Origins</h3>
+          <p class="text-xs text-slate-400">Copy these origins to your corsproxy.dev dashboard</p>
+        </div>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <!-- Live Current Origin -->
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-200">1. Active Browser Window Origin</span>
+            <span class="text-[10px] bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-800">Current</span>
+          </div>
+          <p class="text-slate-400 text-[11px]">The exact origin detected for your current browser window session:</p>
+          <div class="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg p-2 font-mono text-cyan-300">
+            <span id="modal-live-origin">...</span>
+            <button onclick="copyToClipboard(window.location.origin, 'Live Origin')" class="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-sans font-medium transition">
+              Copy Origin
+            </button>
+          </div>
+        </div>
+
+        <!-- Google Canvas Origin -->
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-200">2. Google Canvas Sandboxed Origin</span>
+            <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">Canvas Frame</span>
+          </div>
+          <p class="text-slate-400 text-[11px]">When rendering inside the Web Code Canvas preview environment:</p>
+          <div class="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg p-2 font-mono text-cyan-300">
+            <span>https://googleusercontent.com</span>
+            <button onclick="copyToClipboard('https://googleusercontent.com', 'Canvas Origin')" class="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-sans font-medium transition">
+              Copy Origin
+            </button>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-400 text-[11px] leading-relaxed">
+          <strong class="text-slate-200">Instructions:</strong> Go to <a href="https://corsproxy.dev" target="_blank" class="text-cyan-400 hover:underline">corsproxy.dev</a> &rarr; Account Dashboard &rarr; <strong>Allowed Origins</strong>, paste these origins, and save.
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="toggleModal('origin-modal')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition">Close Setup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDUCATIONAL SOP & CORS MODAL -->
+  <div id="sop-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl relative">
+      <button onclick="toggleModal('sop-modal')" class="absolute right-4 top-4 text-slate-500 hover:text-slate-200">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          <i data-lucide="shield-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-100">Browser Security & Script Injection Guide</h3>
+          <p class="text-xs text-slate-400">Understanding Same-Origin Policy and Proxy Mechanics</p>
+        </div>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed max-h-96 overflow-y-auto pr-1">
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <h4 class="font-semibold text-cyan-400 mb-1 flex items-center gap-1.5">
+            <i data-lucide="lock" class="w-3.5 h-3.5"></i> Same-Origin Policy (SOP)
+          </h4>
+          <p class="text-slate-400">Browsers isolate different origins. A script on <code class="text-cyan-300">site-a.com</code> cannot access or execute code directly inside an iframe running on <code class="text-cyan-300">site-b.com</code> unless both sites permit it.</p>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <h4 class="font-semibold text-cyan-400 mb-1 flex items-center gap-1.5">
+            <i data-lucide="arrow-right-left" class="w-3.5 h-3.5"></i> How Proxy HTML Injector Mode Works
+          </h4>
+          <p class="text-slate-400">The proxy fetches the raw HTML server-side, strips restrictive headers like <code class="text-rose-400">X-Frame-Options</code> and <code class="text-rose-400">Content-Security-Policy</code>, injects custom scriptlets, and renders the result safely in your sandbox frame.</p>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <h4 class="font-semibold text-cyan-400 mb-1 flex items-center gap-1.5">
+            <i data-lucide="layout" class="w-3.5 h-3.5"></i> Direct iFrame Mode
+          </h4>
+          <p class="text-slate-400">Direct iFrame mode embeds the target URL natively. You can toggle sandbox flags to control execution permissions, though sites enforcing <code class="text-slate-300">X-Frame-Options: DENY</code> may require Proxy Mode.</p>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="toggleModal('sop-modal')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- APPLICATION LOGIC -->
+  <script>
+    // CONSTANTS & INITIAL STATE
+    const DEFAULT_KEY = 'sk_live_not-a-real-key';
+    let corsApiKey = localStorage.getItem('sc_cors_key') || DEFAULT_KEY;
+    let activeProxy = localStorage.getItem('sc_proxy_choice') || 'corsproxy.dev';
+    let renderMode = 'proxy'; // 'proxy' or 'iframe'
+    let consoleLogs = [];
+    let activeConsoleFilter = 'all';
+    let postMessageLogs = [];
+    let deferredPrompt = null;
+
+    // INITIALIZATION
+    window.onload = function() {
+      lucide.createIcons();
+      initPWA();
+      setupOriginUI();
+      setupKeyUI();
+      setupMessageBridgeListener();
+      
+      // Auto-render default initial page
+      renderTarget();
+    };
+
+    // SETUP ORIGIN UI DISPLAY
+    function setupOriginUI() {
+      const liveOrigin = window.location.origin;
+      document.getElementById('banner-live-origin').textContent = liveOrigin;
+      document.getElementById('modal-live-origin').textContent = liveOrigin;
+    }
+
+    function dismissBanner() {
+      document.getElementById('origin-setup-banner').classList.add('hidden');
+    }
+
+    // PWA SERVICE WORKER & MANIFEST
+    function initPWA() {
+      const manifest = {
+        name: "ScriptCraft PWA Web Sandbox",
+        short_name: "ScriptCraft",
+        start_url: "./",
+        display: "standalone",
+        background_color: "#0f172a",
+        theme_color: "#0f172a",
+        icons: [{
+          src: "https://placehold.co/192x192/0284c7/ffffff?text=SC",
+          sizes: "192x192",
+          type: "image/png"
+        }]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+      document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(blob));
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('pwa-install-btn').classList.remove('hidden');
+      });
+    }
+
+    function installPWA() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => {
+          deferredPrompt = null;
+          document.getElementById('pwa-install-btn').classList.add('hidden');
+        });
+      }
+    }
+
+    // RENDER MODE SWITCHER (PROXY VS DIRECT IFRAME)
+    function setRenderMode(mode) {
+      renderMode = mode;
+      const btnProxy = document.getElementById('mode-btn-proxy');
+      const btnIframe = document.getElementById('mode-btn-iframe');
+      const iframeFlagsBar = document.getElementById('iframe-flags-bar');
+      const btnLabel = document.getElementById('btn-fetch-label');
+      const modeIndicator = document.getElementById('render-mode-indicator');
+
+      if (mode === 'proxy') {
+        btnProxy.className = "px-3 py-1 text-xs font-medium rounded-md bg-cyan-600 text-white flex items-center gap-1.5 transition shadow";
+        btnIframe.className = "px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition";
+        iframeFlagsBar.classList.add('hidden');
+        btnLabel.textContent = "Fetch & Inject";
+        modeIndicator.textContent = "PROXY MODE";
+      } else {
+        btnIframe.className = "px-3 py-1 text-xs font-medium rounded-md bg-cyan-600 text-white flex items-center gap-1.5 transition shadow";
+        btnProxy.className = "px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition";
+        iframeFlagsBar.classList.remove('hidden');
+        btnLabel.textContent = "Load iFrame";
+        modeIndicator.textContent = "DIRECT IFRAME";
+      }
+      renderTarget();
+    }
+
+    // MAIN TARGET RENDER CONTROLLER
+    function renderTarget() {
+      if (renderMode === 'proxy') {
+        fetchAndInjectProxyPage();
+      } else {
+        loadDirectIframe();
+      }
+    }
+
+    // RENDER MODE 1: PROXY HTML FETCH & JS INJECTOR
+    async function fetchAndInjectProxyPage() {
+      const urlInput = document.getElementById('target-url').value.trim();
+      if (!urlInput) return;
+
+      const loader = document.getElementById('frame-loader');
+      const statusDot = document.getElementById('sandbox-status-dot');
+      const statusText = document.getElementById('sandbox-status-text');
+      const startTime = performance.now();
+
+      loader.classList.remove('hidden');
+      document.getElementById('loader-status').textContent = "Proxying HTML & injecting scriptlets...";
+      statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+      statusText.textContent = "Fetching...";
+
+      try {
+        const proxyUrl = getProxyUrl(urlInput);
+        consoleLog('info', [`Fetching page via ${activeProxy}: ${urlInput}`]);
+        
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+        
+        let htmlText = await response.text();
+        const endTime = performance.now();
+        document.getElementById('load-time-display').textContent = `${Math.round(endTime - startTime)} ms`;
+
+        // Inject Base Tag and Console Interceptor
+        const targetOrigin = new URL(urlInput).origin;
+        const injectedHtml = buildInjectedDocument(htmlText, targetOrigin);
+
+        // Render in Iframe via srcdoc
+        const iframe = document.getElementById('sandbox-iframe');
+        iframe.removeAttribute('src');
+        iframe.srcdoc = injectedHtml;
+
+        statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+        statusText.textContent = `Proxy Loaded (200 OK)`;
+      } catch (err) {
+        consoleLog('error', [`Proxy Fetch Error: ${err.message}`]);
+        statusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+        statusText.textContent = "Fetch Error";
+        
+        const iframe = document.getElementById('sandbox-iframe');
+        iframe.srcdoc = `
+          <div style="font-family:sans-serif;padding:40px;color:#f43f5e;background:#0f172a;height:100vh;">
+            <h2 style="margin:0 0 10px 0;">Proxy Fetch Failed</h2>
+            <p style="color:#94a3b8;font-size:13px;">${err.message}</p>
+            <p style="color:#64748b;font-size:11px;margin-top:20px;">Check API key authorization, target URL validity, or verify your origin setup in the top banner.</p>
+          </div>
+        `;
+      } finally {
+        loader.classList.add('hidden');
+      }
+    }
+
+    // RENDER MODE 2: DIRECT IFRAME RENDERING
+    function loadDirectIframe() {
+      const urlInput = document.getElementById('target-url').value.trim();
+      if (!urlInput) return;
+
+      const iframe = document.getElementById('sandbox-iframe');
+      const statusDot = document.getElementById('sandbox-status-dot');
+      const statusText = document.getElementById('sandbox-status-text');
+
+      updateIframeSandboxFlags();
+      iframe.removeAttribute('srcdoc');
+      iframe.src = urlInput;
+
+      statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+      statusText.textContent = "Direct iFrame Rendered";
+      consoleLog('info', [`Direct iFrame loaded: ${urlInput}`]);
+    }
+
+    // DYNAMIC IFRAME SANDBOX FLAGS UPDATER
+    function updateIframeSandboxFlags() {
+      const iframe = document.getElementById('sandbox-iframe');
+      const flags = [];
+      if (document.getElementById('flag-scripts').checked) flags.push('allow-scripts');
+      if (document.getElementById('flag-same-origin').checked) flags.push('allow-same-origin');
+      if (document.getElementById('flag-forms').checked) flags.push('allow-forms');
+      if (document.getElementById('flag-popups').checked) flags.push('allow-popups');
+      if (document.getElementById('flag-modals').checked) flags.push('allow-modals');
+
+      iframe.setAttribute('sandbox', flags.join(' '));
+    }
+
+    // PROXY URL GENERATOR
+    function getProxyUrl(targetUrl) {
+      const encoded = encodeURIComponent(targetUrl);
+      switch(activeProxy) {
+        case 'corsproxy.dev':
+          return `https://api.corsproxy.dev/proxy?url=${encoded}&key=${corsApiKey}`;
+        case 'corsproxy.io':
+          return `https://corsproxy.io/?url=${encoded}`;
+        case 'allorigins':
+          return `https://api.allorigins.win/raw?url=${encoded}`;
+        case 'cors.dev':
+          return `https://corsproxy.dev/proxy?url=${encoded}&key=${corsApiKey}`;
+        default:
+          return `https://api.corsproxy.dev/proxy?url=${encoded}&key=${corsApiKey}`;
+      }
+    }
+
+    // INJECTION BUILDER FOR PROXY MODE
+    function buildInjectedDocument(htmlText, origin) {
+      // 1. Console & postMessage Interceptor Script
+      const consoleScript = `
+        <script>
+          (function() {
+            const _log = console.log, _warn = console.warn, _error = console.error, _info = console.info;
+            function emit(level, args) {
+              try {
+                const msgs = Array.from(args).map(a => {
+                  if (typeof a === 'object') {
+                    try { return JSON.stringify(a); } catch(e) { return String(a); }
+                  }
+                  return String(a);
+                });
+                window.parent.postMessage({ type: 'SCRIPTCRAFT_LOG', level, msgs, time: new Date().toLocaleTimeString() }, '*');
+              } catch(e){}
+            }
+            console.log = function(...args) { _log.apply(console, args); emit('log', args); };
+            console.warn = function(...args) { _warn.apply(console, args); emit('warn', args); };
+            console.error = function(...args) { _error.apply(console, args); emit('error', args); };
+            console.info = function(...args) { _info.apply(console, args); emit('info', args); };
+            window.addEventListener('error', function(e) {
+              emit('error', [e.message + ' (' + e.filename + ':' + e.lineno + ')']);
+            });
+          })();
+        <\/script>
+      `;
+
+      // 2. Active Scriptlets Code
+      let scriptletCode = '';
+
+      if (document.getElementById('sc-dark-mode').checked) {
+        scriptletCode += `
+          (function() {
+            const style = document.createElement('style');
+            style.textContent = 'html { filter: invert(0.92) hue-rotate(180deg) !important; background: #121212 !important; } img, video, iframe, canvas, svg { filter: invert(1) hue-rotate(180deg) !important; }';
+            document.head.appendChild(style);
+            console.log('[ScriptCraft] Dark Mode Enforcer Activated');
+          })();
+        `;
+      }
+
+      if (document.getElementById('sc-form-filler').checked) {
+        scriptletCode += `
+          (function() {
+            setTimeout(() => {
+              const inputs = document.querySelectorAll('input, textarea');
+              let filled = 0;
+              inputs.forEach(el => {
+                if (el.type === 'hidden' || el.type === 'submit') return;
+                if (el.type === 'email') el.value = 'dev.test@example.com';
+                else if (el.type === 'password') el.value = 'TestPass2026!';
+                else if (el.type === 'number') el.value = '90210';
+                else el.value = 'ScriptCraft Test Data';
+                filled++;
+              });
+              console.log('[ScriptCraft] Auto Form Filler populated ' + filled + ' fields.');
+            }, 500);
+          })();
+        `;
+      }
+
+      if (document.getElementById('sc-fps-hud').checked) {
+        scriptletCode += `
+          (function() {
+            const hud = document.createElement('div');
+            hud.style.cssText = 'position:fixed;top:10px;right:10px;z-index:999999;background:rgba(15,23,42,0.9);color:#00ffcc;padding:6px 12px;font-family:monospace;font-size:11px;border-radius:6px;border:1px solid #00ffcc;pointer-events:none;';
+            document.body.appendChild(hud);
+            let times = [];
+            function loop() {
+              const now = performance.now();
+              while (times.length > 0 && times[0] <= now - 1000) { times.shift(); }
+              times.push(now);
+              hud.innerHTML = '⚡ FPS: <strong>' + times.length + '</strong> | DOM Nodes: <strong>' + document.getElementsByTagName('*').length + '</strong>';
+              requestAnimationFrame(loop);
+            }
+            requestAnimationFrame(loop);
+            console.log('[ScriptCraft] Performance HUD Injected');
+          })();
+        `;
+      }
+
+      if (document.getElementById('sc-inspector').checked) {
+        scriptletCode += `
+          (function() {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:999998;border:2px dashed #f43f5e;background:rgba(244,63,94,0.15);display:none;';
+            document.body.appendChild(overlay);
+            document.addEventListener('mouseover', e => {
+              if (e.target === overlay) return;
+              const r = e.target.getBoundingClientRect();
+              overlay.style.width = r.width + 'px';
+              overlay.style.height = r.height + 'px';
+              overlay.style.top = r.top + 'px';
+              overlay.style.left = r.left + 'px';
+              overlay.style.display = 'block';
+            }, true);
+            document.addEventListener('click', e => {
+              console.log('[Element Inspector] Target Tag:', e.target.tagName.toLowerCase(), e.target);
+            }, true);
+            console.log('[ScriptCraft] Element Inspector Active');
+          })();
+        `;
+      }
+
+      if (document.getElementById('sc-ad-defuser').checked) {
+        scriptletCode += `
+          (function() {
+            const sels = ['[class*="ad-"]', '[id*="ad-"]', '[class*="cookie"]', '[id*="cookie"]', '.modal-backdrop'];
+            let count = 0;
+            sels.forEach(s => {
+              document.querySelectorAll(s).forEach(el => { el.remove(); count++; });
+            });
+            console.log('[ScriptCraft] Ad & Banner Defuser purged ' + count + ' elements.');
+          })();
+        `;
+      }
+
+      const customJs = document.getElementById('custom-js-code').value;
+      if (customJs.trim()) {
+        scriptletCode += `\ntry { ${customJs} } catch(e) { console.error('[Custom Script Error]: ' + e.message); }`;
+      }
+
+      const baseTag = `<base href="${origin}/">`;
+      const fullScript = consoleScript + `<script>${scriptletCode}<\/script>`;
+
+      if (htmlText.includes('<head>')) {
+        return htmlText.replace('<head>', `<head>${baseTag}${fullScript}`);
+      } else {
+        return `${baseTag}${fullScript}${htmlText}`;
+      }
+    }
+
+    // MESSAGE BRIDGE & CONSOLE LISTENERS
+    function setupMessageBridgeListener() {
+      window.addEventListener('message', (e) => {
+        if (!e.data) return;
+
+        if (e.data.type === 'SCRIPTCRAFT_LOG') {
+          consoleLog(e.data.level, e.data.msgs, e.data.time);
+        } else {
+          // General postMessage log
+          logPostMessageReceived(e.origin, e.data);
+        }
+      });
+    }
+
+    function sendPostMessage() {
+      const payloadStr = document.getElementById('pm-payload').value;
+      const iframe = document.getElementById('sandbox-iframe');
+      
+      try {
+        let payload = payloadStr;
+        try { payload = JSON.parse(payloadStr); } catch(err){}
+        
+        iframe.contentWindow.postMessage(payload, '*');
+        showToast('postMessage dispatched to frame');
+        consoleLog('info', [`Dispatched postMessage:`, payload]);
+      } catch(err) {
+        showToast('Failed to send postMessage: ' + err.message);
+      }
+    }
+
+    function logPostMessageReceived(origin, data) {
+      const container = document.getElementById('pm-logs-container');
+      if (postMessageLogs.length === 0) container.innerHTML = '';
+
+      const time = new Date().toLocaleTimeString();
+      postMessageLogs.push({ origin, data, time });
+
+      const div = document.createElement('div');
+      div.className = "p-2 rounded bg-slate-950 border border-slate-800 text-[11px] font-mono space-y-0.5";
+      div.innerHTML = `
+        <div class="flex items-center justify-between text-slate-500">
+          <span>From: ${origin || 'frame'}</span>
+          <span>${time}</span>
+        </div>
+        <div class="text-cyan-300 break-all">${typeof data === 'object' ? JSON.stringify(data) : String(data)}</div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function clearPostMessageLogs() {
+      postMessageLogs = [];
+      document.getElementById('pm-logs-container').innerHTML = '<div class="text-slate-600 italic">No incoming postMessages captured.</div>';
+    }
+
+    // DEVTOOLS CONSOLE CONTROLLER
+    function consoleLog(level, msgs, timeStr) {
+      const time = timeStr || new Date().toLocaleTimeString();
+      consoleLogs.push({ level, msgs, time });
+
+      const badge = document.getElementById('log-count-badge');
+      badge.textContent = consoleLogs.length;
+      badge.classList.remove('hidden');
+
+      renderConsoleLogs();
+    }
+
+    function renderConsoleLogs() {
+      const container = document.getElementById('console-logs-container');
+      container.innerHTML = '';
+
+      const filtered = consoleLogs.filter(log => activeConsoleFilter === 'all' || log.level === activeConsoleFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-slate-600 italic">No ${activeConsoleFilter} logs recorded.</div>`;
+        return;
+      }
+
+      filtered.forEach(log => {
+        const div = document.createElement('div');
+        let colorClass = 'text-slate-300';
+        let bgClass = 'bg-slate-900/40';
+
+        if (log.level === 'warn') { colorClass = 'text-amber-400'; bgClass = 'bg-amber-950/20 border-l-2 border-amber-500'; }
+        if (log.level === 'error') { colorClass = 'text-rose-400'; bgClass = 'bg-rose-950/20 border-l-2 border-rose-500'; }
+        if (log.level === 'info') { colorClass = 'text-cyan-400'; bgClass = 'bg-cyan-950/20'; }
+
+        div.className = `p-1.5 px-2 rounded ${bgClass} ${colorClass} flex items-start gap-2 text-[11px] font-mono leading-tight`;
+        div.innerHTML = `
+          <span class="text-slate-600 shrink-0 select-none">${log.time}</span>
+          <span class="uppercase text-[9px] font-bold px-1 rounded bg-slate-800 text-slate-400 shrink-0">${log.level}</span>
+          <span class="break-all">${log.msgs.join(' ')}</span>
+        `;
+        container.appendChild(div);
+      });
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function runConsoleCmd() {
+      const input = document.getElementById('console-cmd-input');
+      const cmd = input.value.trim();
+      if (!cmd) return;
+
+      const iframe = document.getElementById('sandbox-iframe');
+      consoleLog('info', [`> ${cmd}`]);
+      try {
+        const res = iframe.contentWindow.eval(cmd);
+        consoleLog('log', [`<`, res]);
+      } catch(err) {
+        consoleLog('error', [`< Error: ${err.message}`]);
+      }
+      input.value = '';
+    }
+
+    function filterConsole(type) {
+      activeConsoleFilter = type;
+      ['all', 'log', 'warn', 'error'].forEach(t => {
+        const btn = document.getElementById(`filter-${t}`);
+        btn.className = (t === type) ? "px-2 py-0.5 rounded bg-slate-800 text-slate-200 font-medium" : "px-2 py-0.5 rounded text-slate-400 hover:text-slate-200";
+      });
+      renderConsoleLogs();
+    }
+
+    function clearConsoleLogs() {
+      consoleLogs = [];
+      document.getElementById('log-count-badge').classList.add('hidden');
+      renderConsoleLogs();
+    }
+
+    function executeCustomJsNow() {
+      const code = document.getElementById('custom-js-code').value;
+      const iframe = document.getElementById('sandbox-iframe');
+      try {
+        iframe.contentWindow.eval(code);
+        showToast('Custom script evaluated live!');
+        consoleLog('info', ['Executed custom scriptlet live in frame']);
+      } catch (err) {
+        consoleLog('error', [`Execution Error: ${err.message}`]);
+      }
+    }
+
+    // API KEY MANAGEMENT
+    function setupKeyUI() {
+      const keyInput = document.getElementById('cors-key-input');
+      const proxySelector = document.getElementById('proxy-selector');
+      keyInput.value = corsApiKey;
+      proxySelector.value = activeProxy;
+      updateKeyBadgeStatus('active', 'CorsProxy Key Active');
+    }
+
+    function handleProxyChange() {
+      activeProxy = document.getElementById('proxy-selector').value;
+      localStorage.setItem('sc_proxy_choice', activeProxy);
+      showToast(`Proxy switched to ${activeProxy}`);
+    }
+
+    function saveAndValidateKey() {
+      const val = document.getElementById('cors-key-input').value.trim();
+      if (!val) return;
+      corsApiKey = val;
+      localStorage.setItem('sc_cors_key', corsApiKey);
+      testKeyAuth();
+    }
+
+    async function testKeyAuth() {
+      updateKeyBadgeStatus('validating', 'Testing Key...');
+      try {
+        const testTarget = 'https://httpbin.org/get';
+        const proxyUrl = `https://api.corsproxy.dev/proxy?url=${encodeURIComponent(testTarget)}&key=${corsApiKey}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          updateKeyBadgeStatus('active', 'CorsProxy Authenticated');
+          showToast('Key validated successfully!');
+        } else {
+          updateKeyBadgeStatus('error', `Key Error (${res.status})`);
+          showToast(`Key check failed: HTTP ${res.status}`);
+        }
+      } catch (err) {
+        updateKeyBadgeStatus('error', 'Auth Ping Failed');
+        showToast('Key auth ping failed');
+      }
+    }
+
+    function resetDefaultKey() {
+      corsApiKey = DEFAULT_KEY;
+      document.getElementById('cors-key-input').value = corsApiKey;
+      localStorage.setItem('sc_cors_key', corsApiKey);
+      updateKeyBadgeStatus('active', 'Default Key Restored');
+      showToast('Restored default CorsProxy key');
+    }
+
+    function updateKeyBadgeStatus(state, text) {
+      const badge = document.getElementById('key-status-badge');
+      const badgeText = document.getElementById('key-badge-text');
+      const masked = corsApiKey.substring(0, 10) + '...' + corsApiKey.substring(corsApiKey.length - 3);
+      document.getElementById('masked-key-display').textContent = masked;
+      badgeText.textContent = text;
+
+      if (state === 'active') {
+        badge.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/40 text-emerald-400 text-xs font-medium hover:bg-emerald-900/40 transition";
+      } else if (state === 'validating') {
+        badge.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-950/40 text-amber-400 text-xs font-medium transition animate-pulse";
+      } else {
+        badge.className = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-rose-500/30 bg-rose-950/40 text-rose-400 text-xs font-medium transition";
+      }
+    }
+
+    function toggleKeyVisibility() {
+      const input = document.getElementById('cors-key-input');
+      const eye = document.getElementById('eye-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        eye.setAttribute('data-lucide', 'eye-off');
+      } else {
+        input.type = 'password';
+        eye.setAttribute('data-lucide', 'eye');
+      }
+      lucide.createIcons();
+    }
+
+    // VIEWPORT & TAB NAVIGATION
+    function setViewport(device) {
+      const wrapper = document.getElementById('device-wrapper');
+      ['desktop', 'tablet', 'mobile'].forEach(d => {
+        const btn = document.getElementById(`btn-vp-${d}`);
+        btn.className = (d === device) 
+          ? "vp-btn px-2.5 py-1 text-xs font-medium rounded-md bg-slate-800 text-cyan-400 flex items-center gap-1.5 transition"
+          : "vp-btn px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition";
+      });
+
+      wrapper.className = `device-viewport device-${device} bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-800 flex flex-col relative`;
+    }
+
+    function switchTab(tab) {
+      ['scriptlets', 'console', 'postmessage', 'settings'].forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const panel = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          btn.className = "flex-1 py-2.5 px-3 font-medium text-cyan-400 border-b-2 border-cyan-400 flex items-center justify-center gap-1.5 transition";
+          panel.classList.remove('hidden');
+        } else {
+          btn.className = "flex-1 py-2.5 px-3 font-medium text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center gap-1.5 transition";
+          panel.classList.add('hidden');
+        }
+      });
+    }
+
+    // UTILITIES & HELPERS
+    function copyToClipboard(text, label) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      showToast(`Copied ${label} to clipboard!`);
+    }
+
+    function showToast(msg) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = "animate-toast pointer-events-auto bg-slate-900 border border-cyan-500/40 text-cyan-300 px-3.5 py-2 rounded-xl text-xs font-medium shadow-2xl flex items-center gap-2";
+      toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-cyan-400"></i> ${msg}`;
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    }
+
+    function loadPreset(url) {
+      document.getElementById('target-url').value = url;
+      togglePresetMenu();
+      renderTarget();
+    }
+
+    function togglePresetMenu() {
+      document.getElementById('preset-menu').classList.toggle('hidden');
+    }
+
+    function clearUrl() {
+      document.getElementById('target-url').value = '';
+    }
+
+    function toggleModal(id) {
+      document.getElementById(id).classList.toggle('hidden');
+    }
+
+    function reloadSandboxIframe() {
+      renderTarget();
+    }
+
+    function openFrameInNewTab() {
+      const url = document.getElementById('target-url').value;
+      if (url) window.open(url, '_blank');
+    }
+  </script>
+</body>
+</html>
