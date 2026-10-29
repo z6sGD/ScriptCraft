@@ -6,6 +6,14 @@
 
 ---
 
+# Mirror Links
+
+**ALL MIRROR LINKS UPDATE AUTOMATICALLY**
+
+[https://scriptcraft.pages.dev](https://scriptcraft.pages.dev)
+
+[https://scriptcraft.scriptcraft.workers.dev](https://scriptcraft.scriptcraft.workers.dev)
+
 ## 🚀 Key Features
 
 * **Dual Rendering Engines:**
